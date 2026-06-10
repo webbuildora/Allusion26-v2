@@ -75,7 +75,7 @@ export default function Register() {
     if (!formData.category) newErrors.category = 'Category selection is required';
     if (!formData.language) newErrors.language = 'Language track selection is required';
     if (!formData.contact.trim()) newErrors.contact = 'Contact number is required';
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email address is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -99,25 +99,16 @@ export default function Register() {
 
     fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(formData),
     })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Server returned an error response');
-        }
-        return res.json();
+      .then(() => {
+        setSubmitStatus('success');
       })
-      .then((data) => {
-        if (data.status === 'success') {
-          setSubmitStatus('success');
-        } else {
-          throw new Error(data.message || 'Failed to submit registration');
-        }
-      })
-      .catch((err) => {
+      .catch(() => {
         setSubmitStatus('error');
-        setErrorMessage(err.message || 'Failed to connect to server. Form data is preserved.');
+        setErrorMessage('Failed to connect to server. Please try again.');
       })
       .finally(() => {
         setIsSubmitting(false);
