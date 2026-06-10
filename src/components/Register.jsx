@@ -30,7 +30,7 @@
  * }
  */
 
-const APPS_SCRIPT_URL = 'REPLACE_WITH_YOUR_DEPLOYED_SCRIPT_URL';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNZaydtTvcVARRnAgxHAfq-esuyIWISaznG480c9s4nddJ8T8Rfr0XUI_Oo7RiQHp76Q/exec';
 
 import React, { useState } from 'react';
 import { FiEdit3, FiSend, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
