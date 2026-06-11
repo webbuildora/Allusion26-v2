@@ -1,88 +1,122 @@
 /*
  * ─── GOOGLE APPS SCRIPT ────────────────────────────────────────────
- * 1. Go to script.google.com and create a new project
- * 2. Paste the function below, replacing YOUR_SPREADSHEET_ID
- * 3. Deploy → New Deployment → Web App
- *    Execute as: Me | Who has access: Anyone
- * 4. Copy the Web App URL
- * 5. Paste it as the value of APPS_SCRIPT_URL below
+ * Update the doPost function in your Apps Script to handle all fields below.
  * ───────────────────────────────────────────────────────────────────
- *
- * function doPost(e) {
- *   const data = JSON.parse(e.postData.contents);
- *   const sheet = SpreadsheetApp
- *     .openById('YOUR_SPREADSHEET_ID')
- *     .getActiveSheet();
- *   sheet.appendRow([
- *     new Date(),
- *     data.participant1,
- *     data.participant2,
- *     data.institution,
- *     data.category,
- *     data.language,
- *     data.contact,
- *     data.email,
- *     data.message || ''
- *   ]);
- *   return ContentService
- *     .createTextOutput(JSON.stringify({ status: 'success' }))
- *     .setMimeType(ContentService.MimeType.JSON);
- * }
  */
 
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNZaydtTvcVARRnAgxHAfq-esuyIWISaznG480c9s4nddJ8T8Rfr0XUI_Oo7RiQHp76Q/exec';
+const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzTdg29hhFCwu_u6gotitMZoXCLmNiJpNeM7UNarCinPgT8UgiOhlvaROWhctnFK3_t/exec';
+const SRI_LANKA_DISTRICTS = [
+  'Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha',
+  'Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala',
+  'Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa',
+  'Puttalam','Ratnapura','Trincomalee','Vavuniya'
+];
 
 import React, { useState } from 'react';
 import { FiEdit3, FiSend, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
 
-export default function Register() {
-  const [formData, setFormData] = useState({
-    participant1: '',
-    participant2: '',
-    institution: '',
-    category: '', // 'University' or 'School'
-    language: '',   // 'Sinhala', 'English', 'Tamil'
-    contact: '',
-    email: '',
-    message: '',
-  });
+const INITIAL_STATE = {
+  teamCategory: '',
+  preferredLanguage: '',
+  // School fields
+  district: '',
+  schoolName: '',
+  schoolAddress: '',
+  teamName: '',
+  // Contestant 1
+  c1Name: '',
+  c1Email: '',
+  c1Phone: '',
+  c1Grade: '',
+  // Contestant 2
+  c2Name: '',
+  c2Email: '',
+  c2Phone: '',
+  c2Grade: '',
+  // Teacher-in-charge (school)
+  teacherName: '',
+  teacherPhone: '',
+  teacherEmail: '',
+  // University fields
+  universityName: '',
+  faculty: '',
+  uniTeamName: '',
+  // Uni Contestant 1
+  uc1Name: '',
+  uc1RegNo: '',
+  uc1Phone: '',
+  uc1Email: '',
+  uc1Year: '',
+  // Uni Contestant 2
+  uc2Name: '',
+  uc2RegNo: '',
+  uc2Phone: '',
+  uc2Email: '',
+  uc2Year: '',
+  declaration: false,
+};
 
+export default function Register() {
+  const [formData, setFormData] = useState(INITIAL_STATE);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle', 'success', 'error'
+  const [submitStatus, setSubmitStatus] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    // Clear error for field when user starts typing
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
+  const isSchool = formData.teamCategory === 'School';
+  const isUniversity = formData.teamCategory === 'University';
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const req = (val, msg) => (!val || !val.toString().trim()) ? msg : '';
+  const reqEmail = (val) => {
+    if (!val.trim()) return 'Email is required';
+    if (!/\S+@\S+\.\S+/.test(val)) return 'Invalid email address';
+    return '';
   };
 
   const validate = () => {
-    const newErrors = {};
-    if (!formData.participant1.trim()) newErrors.participant1 = 'Participant 1 Name is required';
-    if (!formData.participant2.trim()) newErrors.participant2 = 'Participant 2 Name is required';
-    if (!formData.institution.trim()) newErrors.institution = 'University / School name is required';
-    if (!formData.category) newErrors.category = 'Category selection is required';
-    if (!formData.language) newErrors.language = 'Language track selection is required';
-    if (!formData.contact.trim()) newErrors.contact = 'Contact number is required';
+    const e = {};
+    e.teamCategory = req(formData.teamCategory, 'Team category is required');
+    e.preferredLanguage = req(formData.preferredLanguage, 'Preferred language is required');
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email address is invalid';
+    if (isSchool) {
+      e.district = req(formData.district, 'District is required');
+      e.schoolName = req(formData.schoolName, 'School name is required');
+      e.teamName = req(formData.teamName, 'Team / Duo name is required');
+      e.c1Name = req(formData.c1Name, 'Full name is required');
+      e.c1Email = reqEmail(formData.c1Email);
+      e.c1Phone = req(formData.c1Phone, 'Phone number is required');
+      e.c1Grade = req(formData.c1Grade, 'Grade is required');
+      e.c2Name = req(formData.c2Name, 'Full name is required');
+      e.c2Email = reqEmail(formData.c2Email);
+      e.c2Phone = req(formData.c2Phone, 'Phone number is required');
+      e.c2Grade = req(formData.c2Grade, 'Grade is required');
+      e.teacherName = req(formData.teacherName, 'Teacher name is required');
+      e.teacherPhone = req(formData.teacherPhone, 'Teacher phone is required');
     }
 
-    return newErrors;
+    if (isUniversity) {
+      e.universityName = req(formData.universityName, 'University name is required');
+      e.faculty = req(formData.faculty, 'Faculty is required');
+      e.uniTeamName = req(formData.uniTeamName, 'Team / Duo name is required');
+      e.uc1Name = req(formData.uc1Name, 'Full name is required');
+      e.uc1RegNo = req(formData.uc1RegNo, 'Registration / MC number is required');
+      e.uc1Phone = req(formData.uc1Phone, 'Phone number is required');
+      e.uc1Email = reqEmail(formData.uc1Email);
+      e.uc2Name = req(formData.uc2Name, 'Full name is required');
+      e.uc2RegNo = req(formData.uc2RegNo, 'Registration / MC number is required');
+      e.uc2Phone = req(formData.uc2Phone, 'Phone number is required');
+      e.uc2Email = reqEmail(formData.uc2Email);
+    }
+
+    if (!formData.declaration) e.declaration = 'You must confirm the declaration';
+
+    return Object.fromEntries(Object.entries(e).filter(([, v]) => v));
   };
 
   const handleSubmit = (e) => {
@@ -90,39 +124,60 @@ export default function Register() {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      const firstErrorKey = Object.keys(validationErrors)[0];
+      const el = document.querySelector(`[name="${firstErrorKey}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-
     setIsSubmitting(true);
     setSubmitStatus('idle');
     setErrorMessage('');
-
-    fetch(APPS_SCRIPT_URL, {
+    fetch(SHEET_ENDPOINT, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(formData),
     })
-      .then(() => {
-        setSubmitStatus('success');
-      })
+      .then(() => { setSubmitStatus('success'); })
       .catch(() => {
         setSubmitStatus('error');
         setErrorMessage('Failed to connect to server. Please try again.');
       })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
+      .finally(() => { setIsSubmitting(false); });
   };
+
+  const Field = ({ id, label, required, error, children }) => (
+    <div className="register-field">
+      <label className="register-label" htmlFor={id}>
+        {label}{required && ' *'}
+      </label>
+      {children}
+      {error && <span className="error-message"><FiAlertCircle /> {error}</span>}
+    </div>
+  );
+
+  const TextInput = ({ name, type = 'text', placeholder, id }) => (
+    <input
+      type={type} id={id || name} name={name}
+      value={formData[name]} onChange={handleChange}
+      className={errors[name] ? 'error-field' : ''}
+      placeholder={placeholder || ''}
+      disabled={isSubmitting}
+    />
+  );
+
+  const SectionDivider = ({ title }) => (
+    <div className="form-section-divider">
+      <span>{title}</span>
+    </div>
+  );
 
   if (submitStatus === 'success') {
     return (
       <section id="register">
         <div className="section-inner">
           <div className="success-card">
-            <div className="success-icon">
-              <FiCheckCircle />
-            </div>
+            <div className="success-icon"><FiCheckCircle /></div>
             <h3>Registration Received!</h3>
             <p>We'll be in touch soon. See you on stage!</p>
           </div>
@@ -140,217 +195,225 @@ export default function Register() {
             Register for Allusion'26 <FiEdit3 style={{ fontSize: '2.2rem', color: 'var(--amber-light)' }} />
           </h2>
           <div className="section-line" />
-          <p className="section-desc">
-            <em>Secure your spot on the stage</em>
-          </p>
+          <p className="section-desc"><em>Secure your spot on the stage</em></p>
         </div>
 
         <div className="register-card">
           <form className="register-form" onSubmit={handleSubmit}>
-            <div className="register-form-row">
-              {/* Participant 1 */}
-              <div className="register-field">
-                <label className="register-label" htmlFor="participant1">Participant 1 Full Name *</label>
-                <input
-                  type="text"
-                  id="participant1"
-                  name="participant1"
-                  value={formData.participant1}
-                  onChange={handleInputChange}
-                  className={errors.participant1 ? 'error-field' : ''}
-                  disabled={isSubmitting}
-                />
-                {errors.participant1 && (
-                  <span className="error-message">
-                    <FiAlertCircle /> {errors.participant1}
-                  </span>
-                )}
-              </div>
 
-              {/* Participant 2 */}
-              <div className="register-field">
-                <label className="register-label" htmlFor="participant2">Participant 2 Full Name *</label>
-                <input
-                  type="text"
-                  id="participant2"
-                  name="participant2"
-                  value={formData.participant2}
-                  onChange={handleInputChange}
-                  className={errors.participant2 ? 'error-field' : ''}
-                  disabled={isSubmitting}
-                />
-                {errors.participant2 && (
-                  <span className="error-message">
-                    <FiAlertCircle /> {errors.participant2}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* University / School Name */}
-            <div className="register-field full-width">
-              <label className="register-label" htmlFor="institution">University / School Name *</label>
-              <input
-                type="text"
-                id="institution"
-                name="institution"
-                value={formData.institution}
-                onChange={handleInputChange}
-                className={errors.institution ? 'error-field' : ''}
-                disabled={isSubmitting}
-              />
-              {errors.institution && (
-                <span className="error-message">
-                  <FiAlertCircle /> {errors.institution}
-                </span>
-              )}
-            </div>
+            {/* ── GENERAL INFORMATION ── */}
+            <SectionDivider title="General Information" />
 
             <div className="register-form-row">
-              {/* Category */}
-              <div className="register-field">
-                <label className="register-label">Category *</label>
+              {/* Team Category */}
+              <Field label="Team Category" required error={errors.teamCategory}>
                 <div className="pill-group">
-                  <div className="pill-option">
-                    <input
-                      type="radio"
-                      id="cat-uni"
-                      name="category"
-                      value="University"
-                      checked={formData.category === 'University'}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="cat-uni" className="pill-label">University</label>
-                  </div>
-                  <div className="pill-option">
-                    <input
-                      type="radio"
-                      id="cat-school"
-                      name="category"
-                      value="School"
-                      checked={formData.category === 'School'}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="cat-school" className="pill-label">School</label>
-                  </div>
+                  {['School', 'University'].map(opt => (
+                    <div className="pill-option" key={opt}>
+                      <input type="radio" id={`cat-${opt}`} name="teamCategory" value={opt}
+                        checked={formData.teamCategory === opt} onChange={handleChange} disabled={isSubmitting} />
+                      <label htmlFor={`cat-${opt}`} className="pill-label">{opt} Category</label>
+                    </div>
+                  ))}
                 </div>
-                {errors.category && (
-                  <span className="error-message">
-                    <FiAlertCircle /> {errors.category}
-                  </span>
-                )}
-              </div>
+              </Field>
 
-              {/* Language Medium */}
-              <div className="register-field">
-                <label className="register-label">Language Medium *</label>
+              {/* Preferred Language */}
+              <Field label="Preferred Language" required error={errors.preferredLanguage}>
                 <div className="pill-group">
-                  <div className="pill-option">
-                    <input
-                      type="radio"
-                      id="lang-sinhala"
-                      name="language"
-                      value="Sinhala"
-                      checked={formData.language === 'Sinhala'}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="lang-sinhala" className="pill-label">Sinhala</label>
-                  </div>
-                  <div className="pill-option">
-                    <input
-                      type="radio"
-                      id="lang-english"
-                      name="language"
-                      value="English"
-                      checked={formData.language === 'English'}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="lang-english" className="pill-label">English</label>
-                  </div>
-                  <div className="pill-option">
-                    <input
-                      type="radio"
-                      id="lang-tamil"
-                      name="language"
-                      value="Tamil"
-                      checked={formData.language === 'Tamil'}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="lang-tamil" className="pill-label">Tamil</label>
-                  </div>
+                  {['Sinhala', 'Tamil', 'English'].map(opt => (
+                    <div className="pill-option" key={opt}>
+                      <input type="radio" id={`lang-${opt}`} name="preferredLanguage" value={opt}
+                        checked={formData.preferredLanguage === opt} onChange={handleChange} disabled={isSubmitting} />
+                      <label htmlFor={`lang-${opt}`} className="pill-label">{opt}</label>
+                    </div>
+                  ))}
                 </div>
-                {errors.language && (
-                  <span className="error-message">
-                    <FiAlertCircle /> {errors.language}
-                  </span>
-                )}
-              </div>
+              </Field>
             </div>
 
-            <div className="register-form-row">
-              {/* Contact Number */}
-              <div className="register-field">
-                <label className="register-label" htmlFor="contact">Contact Number *</label>
-                <input
-                  type="tel"
-                  id="contact"
-                  name="contact"
-                  value={formData.contact}
-                  onChange={handleInputChange}
-                  className={errors.contact ? 'error-field' : ''}
-                  disabled={isSubmitting}
-                />
-                {errors.contact && (
-                  <span className="error-message">
-                    <FiAlertCircle /> {errors.contact}
-                  </span>
-                )}
-              </div>
+            {/* ══════════════════════════════════════════ */}
+            {/* SCHOOL CATEGORY                            */}
+            {/* ══════════════════════════════════════════ */}
+            {isSchool && (
+              <>
+                <SectionDivider title="School Information" />
 
-              {/* Email Address */}
-              <div className="register-field">
-                <label className="register-label" htmlFor="email">Email Address *</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={errors.email ? 'error-field' : ''}
-                  disabled={isSubmitting}
-                />
-                {errors.email && (
-                  <span className="error-message">
-                    <FiAlertCircle /> {errors.email}
-                  </span>
-                )}
-              </div>
-            </div>
+                <div className="register-form-row">
+                  <Field label="District" required error={errors.district}>
+                    <select name="district" id="district" value={formData.district}
+                      onChange={handleChange} className={errors.district ? 'error-field' : ''} disabled={isSubmitting}>
+                      <option value="">Select District</option>
+                      {SRI_LANKA_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="School Name" required error={errors.schoolName}>
+                    <TextInput name="schoolName" />
+                  </Field>
+                </div>
 
-            {/* Message / Special Notes */}
-            <div className="register-field full-width">
-              <label className="register-label" htmlFor="message">Message / Special Notes (Optional)</label>
-              <textarea
-                id="message"
-                name="message"
-                rows="4"
-                value={formData.message}
-                onChange={handleInputChange}
-                disabled={isSubmitting}
-              />
-            </div>
+                <div className="register-form-row">
+                  <Field label="School Address" error={errors.schoolAddress}>
+                    <TextInput name="schoolAddress" />
+                  </Field>
+                  <Field label="Team / Duo Name" required error={errors.teamName}>
+                    <TextInput name="teamName" />
+                  </Field>
+                </div>
 
-            {/* Submit Button */}
+                <SectionDivider title="Contestant 1 Details" />
+                <div className="register-form-row">
+                  <Field label="First Contestant Full Name" required error={errors.c1Name}>
+                    <TextInput name="c1Name" />
+                  </Field>
+                  <Field label="Email Address" required error={errors.c1Email}>
+                    <TextInput name="c1Email" type="email" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Phone Number / WhatsApp Number" required error={errors.c1Phone}>
+                    <TextInput name="c1Phone" type="tel" />
+                  </Field>
+                  <Field label="Grade" required error={errors.c1Grade}>
+                    <TextInput name="c1Grade" placeholder="e.g. Grade 12" />
+                  </Field>
+                </div>
+
+                <SectionDivider title="Contestant 2 Details" />
+                <div className="register-form-row">
+                  <Field label="Second Contestant Full Name" required error={errors.c2Name}>
+                    <TextInput name="c2Name" />
+                  </Field>
+                  <Field label="Email Address" required error={errors.c2Email}>
+                    <TextInput name="c2Email" type="email" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Phone Number / WhatsApp Number" required error={errors.c2Phone}>
+                    <TextInput name="c2Phone" type="tel" />
+                  </Field>
+                  <Field label="Grade" required error={errors.c2Grade}>
+                    <TextInput name="c2Grade" placeholder="e.g. Grade 11" />
+                  </Field>
+                </div>
+
+                <SectionDivider title="Teacher-in-Charge Details" />
+                <div className="register-form-row">
+                  <Field label="Teacher-in-Charge Name" required error={errors.teacherName}>
+                    <TextInput name="teacherName" />
+                  </Field>
+                  <Field label="Teacher-in-Charge Phone Number" required error={errors.teacherPhone}>
+                    <TextInput name="teacherPhone" type="tel" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Teacher-in-Charge Email Address" error={errors.teacherEmail}>
+                    <TextInput name="teacherEmail" type="email" />
+                  </Field>
+                  <div className="register-field" />
+                </div>
+              </>
+            )}
+
+            {/* ══════════════════════════════════════════ */}
+            {/* UNIVERSITY CATEGORY                        */}
+            {/* ══════════════════════════════════════════ */}
+            {isUniversity && (
+              <>
+                <SectionDivider title="University Information" />
+
+                <div className="register-form-row">
+                  <Field label="University Name" required error={errors.universityName}>
+                    <TextInput name="universityName" />
+                  </Field>
+                  <Field label="Faculty" required error={errors.faculty}>
+                    <TextInput name="faculty" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Team / Duo Name" required error={errors.uniTeamName}>
+                    <TextInput name="uniTeamName" />
+                  </Field>
+                  <div className="register-field" />
+                </div>
+
+                <SectionDivider title="Contestant 1 Details" />
+                <div className="register-form-row">
+                  <Field label="First Contestant Full Name" required error={errors.uc1Name}>
+                    <TextInput name="uc1Name" />
+                  </Field>
+                  <Field label="Registration / MC Number" required error={errors.uc1RegNo}>
+                    <TextInput name="uc1RegNo" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Phone Number / WhatsApp Number" required error={errors.uc1Phone}>
+                    <TextInput name="uc1Phone" type="tel" />
+                  </Field>
+                  <Field label="Email Address" required error={errors.uc1Email}>
+                    <TextInput name="uc1Email" type="email" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Academic Year" error={errors.uc1Year}>
+                    <TextInput name="uc1Year" placeholder="e.g. 2nd Year" />
+                  </Field>
+                  <div className="register-field" />
+                </div>
+
+                <SectionDivider title="Contestant 2 Details" />
+                <div className="register-form-row">
+                  <Field label="Second Contestant Full Name" required error={errors.uc2Name}>
+                    <TextInput name="uc2Name" />
+                  </Field>
+                  <Field label="Registration / MC Number" required error={errors.uc2RegNo}>
+                    <TextInput name="uc2RegNo" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Phone Number / WhatsApp Number" required error={errors.uc2Phone}>
+                    <TextInput name="uc2Phone" type="tel" />
+                  </Field>
+                  <Field label="Email Address" required error={errors.uc2Email}>
+                    <TextInput name="uc2Email" type="email" />
+                  </Field>
+                </div>
+                <div className="register-form-row">
+                  <Field label="Academic Year" error={errors.uc2Year}>
+                    <TextInput name="uc2Year" placeholder="e.g. 3rd Year" />
+                  </Field>
+                  <div className="register-field" />
+                </div>
+              </>
+            )}
+
+            {/* ── DECLARATION ── */}
+            {(isSchool || isUniversity) && (
+              <>
+                <SectionDivider title="Declaration" />
+                <div className="register-field full-width">
+                  <label className="declaration-label">
+                    <input
+                      type="checkbox" name="declaration"
+                      checked={formData.declaration} onChange={handleChange}
+                      disabled={isSubmitting}
+                      className={errors.declaration ? 'error-field' : ''}
+                    />
+                    <span>We confirm that all information provided is accurate.</span>
+                  </label>
+                  {errors.declaration && (
+                    <span className="error-message"><FiAlertCircle /> {errors.declaration}</span>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ── SUBMIT ── */}
             <button
               type="submit"
               className="btn-primary full-width"
-              disabled={isSubmitting}
-              style={{ width: '100%', marginTop: '1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+              disabled={isSubmitting || (!isSchool && !isUniversity)}
+              style={{ width: '100%', marginTop: '1.5rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: (!isSchool && !isUniversity) ? 0.5 : 1 }}
             >
               <div className="submit-btn-inner">
                 <span>{isSubmitting ? 'Submitting...' : 'Submit Registration'}</span>
@@ -358,7 +421,6 @@ export default function Register() {
               </div>
             </button>
 
-            {/* Inline Error Message */}
             {submitStatus === 'error' && (
               <div className="form-global-error">
                 <FiAlertCircle /> {errorMessage}

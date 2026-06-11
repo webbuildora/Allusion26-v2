@@ -4,7 +4,6 @@ import Hero from './components/Hero';
 import StatsTicker from './components/StatsTicker';
 import About from './components/About';
 import Categories from './components/Categories';
-import Objectives from './components/Objectives';
 import Committee from './components/Committee';
 import Register from './components/Register';
 import FAQ from './components/FAQ';
@@ -35,9 +34,6 @@ export default function App() {
       </AnimatedSection>
       <AnimatedSection>
         <Categories />
-      </AnimatedSection>
-      <AnimatedSection>
-        <Objectives />
       </AnimatedSection>
       <AnimatedSection>
         <Committee />

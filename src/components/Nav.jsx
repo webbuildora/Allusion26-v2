@@ -14,7 +14,6 @@ export default function Nav() {
   const navLinks = [
     { href: '#about', label: 'About' },
     { href: '#categories', label: 'Competition' },
-    { href: '#objectives', label: 'Objectives' },
     { href: '#committee', label: 'Committee' },
     { href: '#register', label: 'Register' },
     { href: '#faq', label: 'FAQ' },
@@ -27,8 +26,10 @@ export default function Nav() {
   return (
     <>
       <nav style={{ boxShadow: scrolled ? '0 4px 30px rgba(0,0,0,0.5)' : 'none' }}>
-        <a href="#hero" className="nav-logo">ALLUS<span>I</span>ON<span>'26</span></a>
-        
+        <a href="#hero" className="nav-logo">
+          <img src="/logos/Allusion26.png" alt="Allusion'26" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
+        </a>
+
         <ul className="nav-links">
           {navLinks.map((link) => (
             <li key={link.href}>
@@ -38,9 +39,9 @@ export default function Nav() {
         </ul>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <a href="#register" className="nav-cta">Register Now</a>
-          <button 
-            className="nav-mobile-toggle" 
+          <a href="#register" className="nav-cta nav-cta-desktop">Register Now</a>
+          <button
+            className="nav-mobile-toggle"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle navigation menu"
           >
