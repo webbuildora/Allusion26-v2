@@ -10,17 +10,17 @@ export default function Categories() {
       tag: 'Duo-Based' 
     },
     { 
-      lang: 'English', 
-      title: 'English', 
-      desc: 'Present your announcing prowess in English on a national stage, competing with university students and school students across the island.', 
-      tag: 'Duo-Based' 
-    },
-    { 
       lang: 'Tamil', 
       title: 'தமிழ்', 
       desc: 'A dedicated platform for Tamil-medium participants to shine in the art of announcing, representing a rich linguistic and cultural heritage.', 
       tag: 'Duo-Based' 
     },
+    { 
+      lang: 'English', 
+      title: 'English', 
+      desc: 'Present your announcing prowess in English on a national stage, competing with university students and school students across the island.', 
+      tag: 'Duo-Based' 
+    }
   ];
 
   return (
